@@ -5,6 +5,7 @@ import {
   Calendar, 
   MapPin, 
   Key, 
+  Sparkles, 
   Activity, 
   Hotel as HotelIcon, 
   Utensils, 
@@ -14,8 +15,12 @@ import {
   Loader2, 
   Flame, 
   Info,
-  HelpCircle,
-  TrendingDown
+  TrendingDown,
+  ArrowRight,
+  TrendingUp,
+  Map,
+  Layers,
+  Award
 } from 'lucide-react';
 
 const BACKEND_URL = 'http://localhost:8000';
@@ -183,7 +188,6 @@ function App() {
     });
 
     es.onerror = (err) => {
-      // EventSource generic error (e.g. lost connection)
       setErrorMessage('Failed to connect to backend planning server. Make sure the FastAPI app is running on localhost:8000.');
       setIsLoading(false);
       setAgentStatuses({
@@ -201,11 +205,12 @@ function App() {
       {/* Header Banner */}
       <header className="app-header">
         <div className="logo-section">
-          <Compass size={36} className="logo-icon" />
+          <Compass size={32} className="logo-icon" />
           <h1 className="logo-text">DestinAI</h1>
         </div>
-        <div className="status-label-group">
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Powered by LangGraph Multi-Agents</span>
+        <div className="header-badge">
+          <span className="pulse-dot"></span>
+          <span>LangGraph Orchestrated Workflow</span>
         </div>
       </header>
 
@@ -215,12 +220,12 @@ function App() {
         {/* Left Side: Forms & Status */}
         <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="glass-card">
-            <h2 className="form-title">Plan Your Trip</h2>
+            <h2 className="form-title">Create Itinerary</h2>
             <form onSubmit={handleStartPlanning}>
               
               {/* Destination */}
               <div className="form-group">
-                <label>Destination</label>
+                <label>Where to go?</label>
                 <div className="input-container">
                   <MapPin className="input-icon" size={18} />
                   <input 
@@ -240,7 +245,7 @@ function App() {
               </div>
 
               {/* Budget & Days */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
                 <div className="form-group">
                   <label>Budget (USD)</label>
                   <div className="input-container">
@@ -285,7 +290,8 @@ function App() {
               {/* Model selection */}
               <div className="form-group">
                 <label>AI Model Provider</label>
-                <div className="select-container">
+                <div className="input-container">
+                  <Layers className="input-icon" size={18} />
                   <select 
                     className="form-select" 
                     value={provider}
@@ -301,7 +307,7 @@ function App() {
               {/* API Key Override */}
               <div className="form-group">
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  Custom API Key <span style={{ textTransform: 'none', color: 'var(--text-muted)' }}>(Optional)</span>
+                  Custom API Key <span style={{ textTransform: 'none', color: 'var(--text-secondary)' }}>(Optional)</span>
                 </label>
                 <div className="input-container">
                   <Key className="input-icon" size={18} />
@@ -314,70 +320,58 @@ function App() {
                     disabled={isLoading}
                   />
                 </div>
-                <small style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-                  If left blank, server-configured key will be used.
+                <small style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.35rem', lineHeight: 1.3 }}>
+                  Overrides default server environment key if provided.
                 </small>
               </div>
 
               <button type="submit" className="btn-primary" disabled={isLoading}>
                 {isLoading ? (
                   <>
-                    <Loader2 size={18} className="status-spinner" /> Generating Plan...
+                    <Loader2 size={18} className="status-spinner" /> Running Workflow...
                   </>
                 ) : (
                   <>
-                    <Flame size={18} /> Plan My Adventure
+                    <Flame size={18} /> Plan My Adventure <ArrowRight size={16} />
                   </>
                 )}
               </button>
             </form>
           </div>
 
-          {/* Workflow agent progress status trackers */}
+          {/* Timeline Step Status Tracker */}
           {(isLoading || plannerSkeleton) && (
             <div className="glass-card status-tracker">
-              <h3 className="status-title">Agent Execution pipeline</h3>
-              <div className="status-list">
+              <h3 className="status-title">AI Agents Pipeline</h3>
+              <div className="timeline-list">
                 
                 {/* Planner Agent */}
-                <div className={`status-item ${agentStatuses.planner}`}>
-                  <div className="status-label-group">
-                    <span className="status-indicator"></span>
-                    <span>Planner Agent</span>
-                  </div>
+                <div className={`timeline-step ${agentStatuses.planner}`}>
+                  <span className="timeline-step-label">Planner Agent</span>
                   {agentStatuses.planner === 'running' && <Loader2 size={14} className="status-spinner" />}
                   {agentStatuses.planner === 'completed' && <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />}
                   {agentStatuses.planner === 'failed' && <AlertCircle size={14} style={{ color: 'var(--danger)' }} />}
                 </div>
 
                 {/* Hotel Agent */}
-                <div className={`status-item ${agentStatuses.hotel}`}>
-                  <div className="status-label-group">
-                    <span className="status-indicator"></span>
-                    <span>Hotel Agent</span>
-                  </div>
+                <div className={`timeline-step ${agentStatuses.hotel}`}>
+                  <span className="timeline-step-label">Hotel Agent</span>
                   {agentStatuses.hotel === 'running' && <Loader2 size={14} className="status-spinner" />}
                   {agentStatuses.hotel === 'completed' && <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />}
                   {agentStatuses.hotel === 'failed' && <AlertCircle size={14} style={{ color: 'var(--danger)' }} />}
                 </div>
 
                 {/* Attractions Agent */}
-                <div className={`status-item ${agentStatuses.attractions}`}>
-                  <div className="status-label-group">
-                    <span className="status-indicator"></span>
-                    <span>Attractions Agent</span>
-                  </div>
+                <div className={`timeline-step ${agentStatuses.attractions}`}>
+                  <span className="timeline-step-label">Attractions Agent</span>
                   {agentStatuses.attractions === 'running' && <Loader2 size={14} className="status-spinner" />}
                   {agentStatuses.attractions === 'completed' && <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />}
                   {agentStatuses.attractions === 'failed' && <AlertCircle size={14} style={{ color: 'var(--danger)' }} />}
                 </div>
 
                 {/* Budget Agent */}
-                <div className={`status-item ${agentStatuses.budget}`}>
-                  <div className="status-label-group">
-                    <span className="status-indicator"></span>
-                    <span>Budget Agent</span>
-                  </div>
+                <div className={`timeline-step ${agentStatuses.budget}`}>
+                  <span className="timeline-step-label">Budget Agent</span>
                   {agentStatuses.budget === 'running' && <Loader2 size={14} className="status-spinner" />}
                   {agentStatuses.budget === 'completed' && <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />}
                   {agentStatuses.budget === 'failed' && <AlertCircle size={14} style={{ color: 'var(--danger)' }} />}
@@ -391,94 +385,129 @@ function App() {
         {/* Right Side: Results Display */}
         <section className="results-section">
           {errorMessage && (
-            <div className="glass-card" style={{ borderColor: 'var(--danger)', background: 'hsla(355, 85%, 60%, 0.05)' }}>
+            <div className="glass-card" style={{ borderColor: 'var(--danger)', background: 'hsla(356, 85%, 55%, 0.05)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--danger)' }}>
                 <AlertCircle />
-                <strong style={{ fontFamily: 'var(--font-heading)' }}>Error</strong>
+                <strong style={{ fontFamily: 'var(--font-heading)' }}>Pipeline Error</strong>
               </div>
-              <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{errorMessage}</p>
+              <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>{errorMessage}</p>
             </div>
           )}
 
-          {/* Results available dashboard tabs */}
+          {/* Results dashboard */}
           {dailyItinerary || hotels || budgetBreakdown ? (
             <>
-              <div className="results-tabs">
+              {/* Destination Top Banner Card */}
+              <div className="destination-banner">
+                <div className="dest-details">
+                  <h2>{destination}</h2>
+                  <div className="dest-meta">
+                    <div className="dest-badge">
+                      <Calendar size={14} /> <span>{days} Days</span>
+                    </div>
+                    <div className="dest-badge">
+                      <DollarSign size={14} /> <span>Target: ${budget}</span>
+                    </div>
+                    {budgetBreakdown && (
+                      <div className="dest-badge">
+                        <Award size={14} /> <span>{budgetBreakdown.status === 'within_budget' ? 'Within Budget' : 'Exceeds Budget'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ textSelf: 'flex-end', textAlign: 'right' }}>
+                  {budgetBreakdown && (
+                    <>
+                      <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>Total Estimate</div>
+                      <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-heading)', lineHeight: 1.1 }}>
+                        ${budgetBreakdown.total_cost}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Tabs list */}
+              <nav className="tabs-navigation">
                 <button 
-                  className={`tab-btn ${activeTab === 'itinerary' ? 'active' : ''}`}
+                  className={`tab-button ${activeTab === 'itinerary' ? 'active' : ''}`}
                   onClick={() => setActiveTab('itinerary')}
                 >
-                  Itinerary
+                  <Map size={16} /> Daily Itinerary
                 </button>
                 <button 
-                  className={`tab-btn ${activeTab === 'hotels' ? 'active' : ''}`}
+                  className={`tab-button ${activeTab === 'hotels' ? 'active' : ''}`}
                   onClick={() => setActiveTab('hotels')}
                 >
-                  Hotels
+                  <HotelIcon size={16} /> Hotel Tiers
                 </button>
                 <button 
-                  className={`tab-btn ${activeTab === 'budget' ? 'active' : ''}`}
+                  className={`tab-button ${activeTab === 'budget' ? 'active' : ''}`}
                   onClick={() => setActiveTab('budget')}
                 >
-                  Budget Breakdown
+                  <DollarSign size={16} /> Budget Ledger
                 </button>
-              </div>
+              </nav>
 
               {/* Tab Content: Itinerary */}
               {activeTab === 'itinerary' && (
                 <div className="tab-content">
                   {dailyItinerary ? (
-                    <div className="itinerary-list">
+                    <div className="itinerary-timeline">
                       {dailyItinerary.map((day) => (
                         <div key={day.day_number} className="day-card">
                           <div className="day-card-header">
-                            <div className="day-title">
-                              <span className="day-number">{day.day_number}</span>
-                              <span className="day-theme">{day.theme}</span>
+                            <div className="day-info">
+                              <span className="day-pill">DAY {day.day_number}</span>
+                              <span className="day-theme-text">{day.theme}</span>
                             </div>
                             {plannerSkeleton?.areas?.[day.day_number - 1] && (
-                              <span className="day-area">{plannerSkeleton.areas[day.day_number - 1]}</span>
+                              <span className="day-area-pill">{plannerSkeleton.areas[day.day_number - 1]}</span>
                             )}
                           </div>
                           <div className="day-card-body">
-                            {/* Attractions */}
-                            <div className="day-section-title">
-                              <Activity size={14} /> Attractions & Activities
+                            {/* Sights */}
+                            <div className="day-column-title">
+                              <Activity size={14} /> Sights & Attractions
                             </div>
-                            <div className="activities-grid">
-                              {day.activities.map((act, index) => (
-                                <div key={index} className="activity-item">
-                                  <h4 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{act.name}</h4>
-                                  <p className="item-desc">{act.description}</p>
-                                  <div className="item-meta">
-                                    <span>Time: {act.recommended_time} ({act.duration})</span>
-                                    <span className="item-price">{act.cost === 0 ? 'Free' : `$${act.cost}`}</span>
+                            <div className="items-grid">
+                              {day.activities.map((act, idx) => (
+                                <div key={idx} className="item-glass-box">
+                                  <div>
+                                    <h4 className="item-name">{act.name}</h4>
+                                    <p className="item-desc-text">{act.description}</p>
+                                  </div>
+                                  <div className="item-footer">
+                                    <span>🕒 {act.recommended_time} ({act.duration})</span>
+                                    <span className="item-cost-tag">{act.cost === 0 ? 'Free' : `$${act.cost}`}</span>
                                   </div>
                                 </div>
                               ))}
                             </div>
 
-                            {/* Restaurants */}
-                            <div className="day-section-title">
-                              <Utensils size={14} /> Restaurants
+                            {/* Dining */}
+                            <div className="day-column-title">
+                              <Utensils size={14} /> Local Dining
                             </div>
-                            <div className="activities-grid" style={{ marginBottom: '1.25rem' }}>
-                              {day.restaurants.map((rest, index) => (
-                                <div key={index} className="activity-item" style={{ borderColor: 'hsla(315, 80%, 60%, 0.15)' }}>
-                                  <h4 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{rest.name}</h4>
-                                  <p className="item-desc">{rest.description} <small>({rest.cuisine})</small></p>
-                                  <div className="item-meta">
-                                    <span>Location: {rest.location}</span>
-                                    <span className="item-price" style={{ color: 'var(--secondary)' }}>Avg: ${rest.average_cost}</span>
+                            <div className="items-grid dining-grid" style={{ marginBottom: '1.5rem' }}>
+                              {day.restaurants.map((rest, idx) => (
+                                <div key={idx} className="item-glass-box">
+                                  <div>
+                                    <h4 className="item-name">{rest.name}</h4>
+                                    <p className="item-desc-text">{rest.description} <small style={{ color: 'var(--primary-purple)' }}>({rest.cuisine})</small></p>
+                                  </div>
+                                  <div className="item-footer">
+                                    <span>📍 {rest.location}</span>
+                                    <span className="item-cost-tag">Avg: ${rest.average_cost}</span>
                                   </div>
                                 </div>
                               ))}
                             </div>
 
-                            {/* Transit notes */}
+                            {/* Routing Tips */}
                             {day.routing_notes && (
-                              <div className="transit-banner">
-                                <Navigation className="transit-icon" size={14} />
+                              <div className="transit-footer-bar">
+                                <Navigation size={14} />
                                 <span>{day.routing_notes}</span>
                               </div>
                             )}
@@ -487,9 +516,9 @@ function App() {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      <Loader2 className="status-spinner" style={{ margin: '0 auto 1rem auto' }} />
-                      <span>Attractions Agent is researching daily spots...</span>
+                    <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <Loader2 className="status-spinner" style={{ margin: '0 auto 1.25rem auto', width: '24px', height: '24px' }} />
+                      <span>Attractions Agent is researching local activities...</span>
                     </div>
                   )}
                 </div>
@@ -499,37 +528,33 @@ function App() {
               {activeTab === 'hotels' && (
                 <div className="tab-content">
                   {hotels ? (
-                    <div className="hotel-grid">
-                      {hotels.map((hotel, index) => {
-                        const tier = index === 0 ? 'budget' : index === 1 ? 'mid' : 'lux';
-                        const tierLabel = index === 0 ? 'Budget Tier' : index === 1 ? 'Mid-Range' : 'Luxury Tier';
+                    <div className="hotels-grid">
+                      {hotels.map((hotel, idx) => {
+                        const tier = idx === 0 ? 'budget' : idx === 1 ? 'mid' : 'lux';
+                        const tierLabel = idx === 0 ? 'Budget Tier' : idx === 1 ? 'Mid-Range' : 'Luxury Tier';
                         const isSelected = budgetBreakdown?.selected_hotel_name === hotel.name;
 
                         return (
-                          <div key={index} className="glass-card hotel-card">
+                          <div key={idx} className={`glass-card hotel-premium-card ${isSelected ? 'selected' : ''}`}>
                             {isSelected && (
-                              <div className="hotel-selected-badge">
+                              <div className="hotel-selected-banner">
                                 <CheckCircle2 size={12} /> Selected
                               </div>
                             )}
-                            <span className={`hotel-tag ${tier}`}>{tierLabel}</span>
-                            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', paddingRight: isSelected ? '80px' : '0' }}>
-                              {hotel.name}
-                            </h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.75rem' }}>
+                            <span className={`hotel-badge-tier ${tier}`}>{tierLabel}</span>
+                            <h3 className="hotel-name">{hotel.name}</h3>
+                            <div className="hotel-loc">
                               <MapPin size={12} /> {hotel.location}
-                            </p>
-                            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                              {hotel.description}
-                            </p>
-                            <div className="hotel-price-block">
+                            </div>
+                            <p className="hotel-desc">{hotel.description}</p>
+                            <div className="hotel-pricing-box">
                               <div>
-                                <span className="hotel-price-lbl">Rating</span>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{hotel.rating}</div>
+                                <span className="hotel-rate-title">Rating</span>
+                                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff', marginTop: '0.15rem' }}>{hotel.rating}</div>
                               </div>
                               <div style={{ textAlign: 'right' }}>
-                                <span className="hotel-price-lbl">Price/Night</span>
-                                <div className="hotel-price-num">${hotel.price_per_night}</div>
+                                <span className="hotel-rate-title">Est. / Night</span>
+                                <div className="hotel-rate-val">${hotel.price_per_night}</div>
                               </div>
                             </div>
                           </div>
@@ -537,9 +562,9 @@ function App() {
                       })}
                     </div>
                   ) : (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      <Loader2 className="status-spinner" style={{ margin: '0 auto 1rem auto' }} />
-                      <span>Hotel Agent is lodging search...</span>
+                    <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <Loader2 className="status-spinner" style={{ margin: '0 auto 1.25rem auto', width: '24px', height: '24px' }} />
+                      <span>Hotel Agent is looking up accommodations...</span>
                     </div>
                   )}
                 </div>
@@ -550,76 +575,93 @@ function App() {
                 <div className="tab-content">
                   {budgetBreakdown ? (
                     <div>
-                      {/* Budget Advice banner */}
-                      <div className="budget-advice-box">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                          <Info size={16} style={{ color: 'var(--primary)' }} />
-                          <span>Budget Analysis & Adjustments</span>
+                      {/* Financial advice block */}
+                      <div className="ledger-advice">
+                        <div className="advice-header">
+                          <Sparkles size={16} />
+                          <span>AI Budget Advisor Notes</span>
                         </div>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.92rem', lineHeight: 1.55 }}>
                           {budgetBreakdown.suggestions}
                         </p>
                       </div>
 
-                      {/* Budget summary stats grid */}
-                      <div className="budget-summary-grid">
-                        <div className="summary-card">
-                          <span className="summary-card-label">User Budget limit</span>
-                          <span className="summary-card-val primary">${budget}</span>
+                      {/* Financial Pill Metrics */}
+                      <div className="ledger-summary-row">
+                        <div className="metric-pill-card">
+                          <span className="metric-label">Target Budget Limit</span>
+                          <span className="metric-val indigo">${budget}</span>
                         </div>
-                        <div className="summary-card">
-                          <span className="summary-card-label">Total Estimated Cost</span>
-                          <span className={`summary-card-val ${budgetBreakdown.status === 'within_budget' ? 'success' : 'danger'}`}>
+                        <div className="metric-pill-card">
+                          <span className="metric-label">Total Computed Cost</span>
+                          <span className={`metric-val ${budgetBreakdown.status === 'within_budget' ? 'success' : 'danger'}`}>
                             ${budgetBreakdown.total_cost}
                           </span>
                         </div>
-                        <div className="summary-card">
-                          <span className="summary-card-label">Status</span>
-                          <span className={`summary-card-val ${budgetBreakdown.status === 'within_budget' ? 'success' : 'danger'}`} style={{ fontSize: '1.25rem' }}>
+                        <div className="metric-pill-card">
+                          <span className="metric-label">Status</span>
+                          <span className={`metric-val ${budgetBreakdown.status === 'within_budget' ? 'success' : 'danger'}`} style={{ fontSize: '1.2rem' }}>
                             {budgetBreakdown.status === 'within_budget' ? 'Within Budget' : 'Over Budget'}
                           </span>
                         </div>
-                        {budgetBreakdown.status === 'within_budget' && (
-                          <div className="summary-card">
-                            <span className="summary-card-label">Remaining Balance</span>
-                            <span className="summary-card-val success">${(parseFloat(budget) - budgetBreakdown.total_cost).toFixed(0)}</span>
-                          </div>
-                        )}
                       </div>
 
-                      {/* Detail Breakdown List */}
-                      <div className="glass-card" style={{ padding: '1.5rem 2rem' }}>
-                        <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-                          Cost Details
+                      {/* Visual budget comparison gauge bar */}
+                      {(() => {
+                        const total = budgetBreakdown.total_cost;
+                        const target = parseFloat(budget) || 1;
+                        const percentage = Math.min(100, Math.round((total / target) * 100));
+                        const isOver = total > target;
+
+                        return (
+                          <div className="gauge-bar-container">
+                            <div className="gauge-header">
+                              <span>Budget Usage Gauge</span>
+                              <span>{percentage}% Used</span>
+                            </div>
+                            <div className="gauge-rail">
+                              <div 
+                                className={`gauge-fill ${isOver ? 'over' : 'under'}`} 
+                                style={{ width: `${percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Detailed Cost Ledger Table */}
+                      <div className="glass-card ledger-table-card">
+                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '1rem', color: '#fff' }}>
+                          Itinerary Ledger Items
                         </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Lodging ({budgetBreakdown.selected_hotel_name})</span>
+                        <div>
+                          <div className="ledger-row">
+                            <span className="ledger-row-label">Accommodation (Selected Tier: {budgetBreakdown.selected_hotel_name})</span>
                             <span style={{ fontWeight: 600 }}>${budgetBreakdown.hotel_costs}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Sightseeing & Activities</span>
+                          <div className="ledger-row">
+                            <span className="ledger-row-label">Sightseeing & Activity Entrance Fees</span>
                             <span style={{ fontWeight: 600 }}>${budgetBreakdown.activity_costs}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Dining & Meals</span>
+                          <div className="ledger-row">
+                            <span className="ledger-row-label">Meals & Restaurant Dining</span>
                             <span style={{ fontWeight: 600 }}>${budgetBreakdown.food_costs}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Local Transport & Metro</span>
+                          <div className="ledger-row">
+                            <span className="ledger-row-label">Estimated Transit & local metro</span>
                             <span style={{ fontWeight: 600 }}>${budgetBreakdown.transport_costs}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: 700, borderTop: '1px solid var(--border-color)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-                            <span>Total Estimated Expenses</span>
-                            <span style={{ color: 'var(--accent-cyan)' }}>${budgetBreakdown.total_cost}</span>
+                          <div className="ledger-row">
+                            <span style={{ color: '#fff', fontWeight: 700 }}>Total Final Bill</span>
+                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 800 }}>${budgetBreakdown.total_cost}</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      <Loader2 className="status-spinner" style={{ margin: '0 auto 1rem auto' }} />
-                      <span>Budget Agent is compiling estimates and optimizing...</span>
+                    <div style={{ padding: '4rem 2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                      <Loader2 className="status-spinner" style={{ margin: '0 auto 1.25rem auto', width: '24px', height: '24px' }} />
+                      <span>Budget Agent is consolidating ledger items...</span>
                     </div>
                   )}
                 </div>
@@ -627,10 +669,12 @@ function App() {
             </>
           ) : (
             /* Empty State */
-            <div className="glass-card empty-state">
-              <Compass size={64} className="empty-state-icon" />
-              <h3>Your Itinerary Awaits</h3>
-              <p>Enter a destination, target budget, and days on the left and start the multi-agent workflow to build a customized plan.</p>
+            <div className="glass-card empty-dashboard">
+              <div className="empty-icon-wrap">
+                <Compass size={44} />
+              </div>
+              <h3>Explore Awaits</h3>
+              <p>Configure your destination, budget constraints, and day count in the panel to launch the multi-agent travel compilation graph.</p>
             </div>
           )}
         </section>
