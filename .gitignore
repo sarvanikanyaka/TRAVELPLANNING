@@ -1,0 +1,15 @@
+# Python virtual environments
+backend/venv/
+backend/.env
+backend/__pycache__/
+backend/.pytest_cache/
+backend/tests/__pycache__/
+
+# Node/React dependencies and builds
+frontend/node_modules/
+frontend/dist/
+frontend/.eslintcache
+
+# OS Files
+.DS_Store
+Thumbs.db
