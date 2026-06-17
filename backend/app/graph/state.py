@@ -9,6 +9,9 @@ class PlanState(TypedDict):
     api_key: Optional[str]
     
     # Outputs/Intermediate state
+    retrieved_context: Optional[List[str]]          # Semantic context chunks
+    currency: Optional[str]                          # Currency name (e.g. INR)
+    currency_symbol: Optional[str]                   # Currency sign (e.g. ₹)
     planner_skeleton: Optional[Dict[str, Any]]      # Outline of daily themes
     hotels: Optional[List[Dict[str, Any]]]           # Lodging details
     attractions: Optional[List[Dict[str, Any]]]     # Sights and activities

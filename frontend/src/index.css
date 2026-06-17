@@ -89,6 +89,248 @@ h1, h2, h3, h4, h5, h6 {
   padding: 2rem 1.5rem;
 }
 
+/* Auth Portal styles */
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-background-circle {
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  border-radius: 50%;
+  filter: blur(80px);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.auth-bg-1 {
+  background: hsla(244, 97%, 66%, 0.15);
+  top: 15%;
+  left: 20%;
+}
+
+.auth-bg-2 {
+  background: hsla(297, 85%, 60%, 0.12);
+  bottom: 15%;
+  right: 20%;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  z-index: 1;
+  background: var(--bg-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-normal);
+  animation: slide-in 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: all var(--transition-smooth);
+}
+
+.auth-card:hover {
+  border-color: var(--border-glow);
+  box-shadow: var(--shadow-normal), var(--shadow-neon);
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--accent-cyan);
+  filter: drop-shadow(0 0 8px var(--accent-cyan-glow));
+}
+
+.auth-logo-text {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 30%, var(--primary-indigo) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-tagline {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.auth-tabs {
+  display: flex;
+  background: var(--bg-inner);
+  padding: 0.35rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 2rem;
+  border: 1px solid var(--border-light);
+}
+
+.auth-tab-btn {
+  flex: 1;
+  padding: 0.65rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.auth-tab-btn:hover {
+  color: #fff;
+}
+
+.auth-tab-btn.active {
+  color: #fff;
+  background: var(--primary-gradient);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+.auth-success-box {
+  background: hsla(150, 84%, 44%, 0.1);
+  border: 1px solid hsla(150, 84%, 44%, 0.3);
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-sm);
+  color: var(--success);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+/* User Greeting in Header */
+.user-menu-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-welcome-text {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+.user-welcome-text strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.btn-signout {
+  background: transparent;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-signout:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: hsla(356, 85%, 55%, 0.05);
+}
+
+/* RAG citation sources components */
+.citations-box {
+  background: var(--bg-inner);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 1.5rem 1.75rem;
+  margin-top: 2rem;
+}
+
+.citations-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.citations-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
+
+.citations-title svg {
+  color: var(--accent-cyan);
+}
+
+.citations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  animation: slide-down 0.25s ease-out;
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.citation-item {
+  background: var(--bg-surface);
+  border-left: 3px solid var(--accent-cyan);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  border-top: 1px solid var(--border-light);
+  border-right: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.citation-header-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.citation-badge {
+  background: hsla(180, 100%, 45%, 0.1);
+  color: var(--accent-cyan);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
 /* Redesigned Header */
 .app-header {
   display: flex;

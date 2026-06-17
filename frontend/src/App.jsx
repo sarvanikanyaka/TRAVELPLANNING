@@ -15,18 +15,35 @@ import {
   Loader2, 
   Flame, 
   Info,
-  TrendingDown,
   ArrowRight,
-  TrendingUp,
   Map,
   Layers,
-  Award
+  Award,
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  User,
+  Mail,
+  Lock,
+  LogOut
 } from 'lucide-react';
 
 const BACKEND_URL = 'http://localhost:8000';
 
 function App() {
-  // Form input states
+  // Authentication states
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authTab, setAuthTab] = useState('login'); // 'login' | 'register'
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  // Auth Form inputs
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+
+  // Planner Form input states
   const [destination, setDestination] = useState('Tokyo, Japan');
   const [budget, setBudget] = useState('1500');
   const [days, setDays] = useState('5');
@@ -41,6 +58,14 @@ function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const [activeTab, setActiveTab] = useState('itinerary'); // 'itinerary', 'hotels', 'budget'
   
+  // Dynamic Currency states loaded from RAG/State
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  
+  // RAG states
+  const [retrievedContext, setRetrievedContext] = useState(null);
+  const [isCitationsOpen, setIsCitationsOpen] = useState(true);
+
   // Streaming State updates from LangGraph
   const [plannerSkeleton, setPlannerSkeleton] = useState(null);
   const [hotels, setHotels] = useState(null);
@@ -49,6 +74,7 @@ function App() {
   
   // Track agent statuses: 'idle' | 'running' | 'completed' | 'failed'
   const [agentStatuses, setAgentStatuses] = useState({
+    retrieval: 'idle',
     planner: 'idle',
     hotel: 'idle',
     attractions: 'idle',
@@ -56,6 +82,16 @@ function App() {
   });
 
   const eventSourceRef = useRef(null);
+
+  // Check login state on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('destinai_user');
+    if (savedUser) {
+      const parsed = JSON.parse(savedUser);
+      setCurrentUser(parsed);
+      setIsLoggedIn(true);
+    }
+  }, []);
 
   // Clean up SSE on unmount
   useEffect(() => {
@@ -65,6 +101,75 @@ function App() {
       }
     };
   }, []);
+
+  // Auth Operations
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+
+    // Basic Validations
+    if (!email.trim() || !password.trim()) {
+      setAuthError('All fields are required');
+      return;
+    }
+    if (!email.includes('@')) {
+      setAuthError('Please enter a valid email address');
+      return;
+    }
+    if (password.length < 6) {
+      setAuthError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (authTab === 'register') {
+      if (!fullName.trim()) {
+        setAuthError('Full name is required for registration');
+        return;
+      }
+      
+      // Save user in localStorage (simulating registration database)
+      const userObj = { email, fullName, password };
+      localStorage.setItem(`user_${email}`, JSON.stringify(userObj));
+      setAuthSuccess('Account registered successfully! Please log in.');
+      setAuthTab('login');
+      setPassword('');
+    } else {
+      // Mock login check
+      const record = localStorage.getItem(`user_${email}`);
+      if (!record) {
+        setAuthError('Account not found. Please register first.');
+        return;
+      }
+      const parsedRecord = JSON.parse(record);
+      if (parsedRecord.password !== password) {
+        setAuthError('Incorrect password');
+        return;
+      }
+
+      // Log in
+      localStorage.setItem('destinai_user', JSON.stringify({ email, fullName: parsedRecord.fullName }));
+      setCurrentUser({ email, fullName: parsedRecord.fullName });
+      setIsLoggedIn(true);
+      setEmail('');
+      setPassword('');
+    }
+  };
+
+  const handleSignOut = () => {
+    localStorage.removeItem('destinai_user');
+    setCurrentUser(null);
+    setIsLoggedIn(false);
+    
+    // Reset planner states
+    setPlannerSkeleton(null);
+    setHotels(null);
+    setDailyItinerary(null);
+    setBudgetBreakdown(null);
+    setRetrievedContext(null);
+    setCurrencySymbol('$');
+    setCurrencyCode('USD');
+  };
 
   // Form input validation
   const validateForm = () => {
@@ -97,10 +202,14 @@ function App() {
     setHotels(null);
     setDailyItinerary(null);
     setBudgetBreakdown(null);
+    setRetrievedContext(null);
+    setCurrencySymbol('$');
+    setCurrencyCode('USD');
     setIsLoading(true);
     
     setAgentStatuses({
-      planner: 'running',
+      retrieval: 'running',
+      planner: 'idle',
       hotel: 'idle',
       attractions: 'idle',
       budget: 'idle'
@@ -133,6 +242,11 @@ function App() {
         const payload = JSON.parse(event.data);
         const { agent, state } = payload;
         
+        // Dynamically capture RAG contexts & currency config
+        if (state.currency_symbol) setCurrencySymbol(state.currency_symbol);
+        if (state.currency) setCurrencyCode(state.currency);
+        if (state.retrieved_context) setRetrievedContext(state.retrieved_context);
+        
         // Update specific states based on which agent has run
         if (state.planner_skeleton) setPlannerSkeleton(state.planner_skeleton);
         if (state.hotels) setHotels(state.hotels);
@@ -142,7 +256,10 @@ function App() {
         // Update progress tracking step state
         setAgentStatuses(prev => {
           const next = { ...prev };
-          if (agent === 'planner') {
+          if (agent === 'retrieval') {
+            next.retrieval = 'completed';
+            next.planner = 'running';
+          } else if (agent === 'planner') {
             next.planner = 'completed';
             next.hotel = 'running';
           } else if (agent === 'hotel') {
@@ -177,6 +294,7 @@ function App() {
 
     es.addEventListener('done', (event) => {
       setAgentStatuses(prev => ({
+        retrieval: 'completed',
         planner: 'completed',
         hotel: 'completed',
         attractions: 'completed',
@@ -191,6 +309,7 @@ function App() {
       setErrorMessage('Failed to connect to backend planning server. Make sure the FastAPI app is running on localhost:8000.');
       setIsLoading(false);
       setAgentStatuses({
+        retrieval: prev => prev === 'running' ? 'failed' : prev,
         planner: prev => prev === 'running' ? 'failed' : prev,
         hotel: prev => prev === 'running' ? 'failed' : prev,
         attractions: prev => prev === 'running' ? 'failed' : prev,
@@ -200,6 +319,105 @@ function App() {
     };
   };
 
+  // Auth Screen Gate
+  if (!isLoggedIn) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-background-circle auth-bg-1"></div>
+        <div className="auth-background-circle auth-bg-2"></div>
+        
+        <div className="auth-card">
+          <div className="auth-header">
+            <div className="auth-logo">
+              <Compass size={40} className="logo-icon" />
+              <h1 className="auth-logo-text">DestinAI</h1>
+            </div>
+            <p className="auth-tagline">RAG-Powered Multi-Agent Travel Planner</p>
+          </div>
+
+          <div className="auth-tabs">
+            <button 
+              type="button" 
+              className={`auth-tab-btn ${authTab === 'login' ? 'active' : ''}`}
+              onClick={() => { setAuthTab('login'); setAuthError(''); }}
+            >
+              Sign In
+            </button>
+            <button 
+              type="button" 
+              className={`auth-tab-btn ${authTab === 'register' ? 'active' : ''}`}
+              onClick={() => { setAuthTab('register'); setAuthError(''); }}
+            >
+              Register
+            </button>
+          </div>
+
+          {authError && (
+            <div className="validation-error" style={{ marginBottom: '1.25rem', justifyContent: 'center' }}>
+              <AlertCircle size={14} /> {authError}
+            </div>
+          )}
+
+          {authSuccess && (
+            <div className="auth-success-box">
+              <CheckCircle2 size={14} /> {authSuccess}
+            </div>
+          )}
+
+          <form onSubmit={handleAuthSubmit}>
+            {authTab === 'register' && (
+              <div className="form-group">
+                <label>Full Name</label>
+                <div className="input-container">
+                  <User className="input-icon" size={18} />
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="John Doe"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>Email Address</label>
+              <div className="input-container">
+                <Mail className="input-icon" size={18} />
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="name@domain.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Password</label>
+              <div className="input-container">
+                <Lock className="input-icon" size={18} />
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button type="submit" className="btn-primary" style={{ marginTop: '1.75rem' }}>
+              {authTab === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Header Banner */}
@@ -208,9 +426,20 @@ function App() {
           <Compass size={32} className="logo-icon" />
           <h1 className="logo-text">DestinAI</h1>
         </div>
-        <div className="header-badge">
-          <span className="pulse-dot"></span>
-          <span>LangGraph Orchestrated Workflow</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+          <div className="user-menu-section">
+            <span className="user-welcome-text">
+              Welcome, <strong>{currentUser?.fullName || 'Traveler'}</strong>
+            </span>
+            <button className="btn-signout" onClick={handleSignOut}>
+              <LogOut size={12} style={{ marginRight: '0.25rem', display: 'inline-block', verticalAlign: 'middle' }} />
+              Sign Out
+            </button>
+          </div>
+          <div className="header-badge">
+            <span className="pulse-dot"></span>
+            <span>RAG Active</span>
+          </div>
         </div>
       </header>
 
@@ -231,7 +460,7 @@ function App() {
                   <input 
                     type="text" 
                     className={`form-input ${errors.destination ? 'error' : ''}`}
-                    placeholder="e.g. Tokyo, Paris, Rome" 
+                    placeholder="e.g. Tokyo, Paris, Goa India" 
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     disabled={isLoading}
@@ -247,9 +476,9 @@ function App() {
               {/* Budget & Days */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label>Budget (USD)</label>
+                  <label>Budget ({currencySymbol})</label>
                   <div className="input-container">
-                    <DollarSign className="input-icon" size={18} />
+                    <span className="input-icon" style={{ left: '1.1rem', fontWeight: 700, fontSize: '0.95rem' }}>{currencySymbol}</span>
                     <input 
                       type="number" 
                       className={`form-input ${errors.budget ? 'error' : ''}`}
@@ -257,6 +486,7 @@ function App() {
                       value={budget}
                       onChange={(e) => setBudget(e.target.value)}
                       disabled={isLoading}
+                      style={{ paddingLeft: '2.5rem' }}
                     />
                   </div>
                   {errors.budget && (
@@ -342,9 +572,17 @@ function App() {
           {/* Timeline Step Status Tracker */}
           {(isLoading || plannerSkeleton) && (
             <div className="glass-card status-tracker">
-              <h3 className="status-title">AI Agents Pipeline</h3>
+              <h3 className="status-title">RAG Agent Pipeline</h3>
               <div className="timeline-list">
                 
+                {/* RAG Retrieval Agent */}
+                <div className={`timeline-step ${agentStatuses.retrieval}`}>
+                  <span className="timeline-step-label">RAG Retrieval Agent</span>
+                  {agentStatuses.retrieval === 'running' && <Loader2 size={14} className="status-spinner" />}
+                  {agentStatuses.retrieval === 'completed' && <CheckCircle2 size={14} style={{ color: 'var(--success)' }} />}
+                  {agentStatuses.retrieval === 'failed' && <AlertCircle size={14} style={{ color: 'var(--danger)' }} />}
+                </div>
+
                 {/* Planner Agent */}
                 <div className={`timeline-step ${agentStatuses.planner}`}>
                   <span className="timeline-step-label">Planner Agent</span>
@@ -406,7 +644,7 @@ function App() {
                       <Calendar size={14} /> <span>{days} Days</span>
                     </div>
                     <div className="dest-badge">
-                      <DollarSign size={14} /> <span>Target: ${budget}</span>
+                      <span style={{ fontWeight: 700 }}>{currencySymbol}</span> <span>Target: {budget} {currencyCode}</span>
                     </div>
                     {budgetBreakdown && (
                       <div className="dest-badge">
@@ -420,7 +658,7 @@ function App() {
                     <>
                       <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 700 }}>Total Estimate</div>
                       <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--accent-cyan)', fontFamily: 'var(--font-heading)', lineHeight: 1.1 }}>
-                        ${budgetBreakdown.total_cost}
+                        {currencySymbol}{budgetBreakdown.total_cost}
                       </div>
                     </>
                   )}
@@ -479,7 +717,7 @@ function App() {
                                   </div>
                                   <div className="item-footer">
                                     <span>🕒 {act.recommended_time} ({act.duration})</span>
-                                    <span className="item-cost-tag">{act.cost === 0 ? 'Free' : `$${act.cost}`}</span>
+                                    <span className="item-cost-tag">{act.cost === 0 ? 'Free' : `${currencySymbol}${act.cost}`}</span>
                                   </div>
                                 </div>
                               ))}
@@ -498,7 +736,7 @@ function App() {
                                   </div>
                                   <div className="item-footer">
                                     <span>📍 {rest.location}</span>
-                                    <span className="item-cost-tag">Avg: ${rest.average_cost}</span>
+                                    <span className="item-cost-tag">Avg: {currencySymbol}{rest.average_cost}</span>
                                   </div>
                                 </div>
                               ))}
@@ -554,7 +792,7 @@ function App() {
                               </div>
                               <div style={{ textAlign: 'right' }}>
                                 <span className="hotel-rate-title">Est. / Night</span>
-                                <div className="hotel-rate-val">${hotel.price_per_night}</div>
+                                <div className="hotel-rate-val">{currencySymbol}{hotel.price_per_night}</div>
                               </div>
                             </div>
                           </div>
@@ -590,12 +828,12 @@ function App() {
                       <div className="ledger-summary-row">
                         <div className="metric-pill-card">
                           <span className="metric-label">Target Budget Limit</span>
-                          <span className="metric-val indigo">${budget}</span>
+                          <span className="metric-val indigo">{currencySymbol}{budget}</span>
                         </div>
                         <div className="metric-pill-card">
                           <span className="metric-label">Total Computed Cost</span>
                           <span className={`metric-val ${budgetBreakdown.status === 'within_budget' ? 'success' : 'danger'}`}>
-                            ${budgetBreakdown.total_cost}
+                            {currencySymbol}{budgetBreakdown.total_cost}
                           </span>
                         </div>
                         <div className="metric-pill-card">
@@ -637,23 +875,23 @@ function App() {
                         <div>
                           <div className="ledger-row">
                             <span className="ledger-row-label">Accommodation (Selected Tier: {budgetBreakdown.selected_hotel_name})</span>
-                            <span style={{ fontWeight: 600 }}>${budgetBreakdown.hotel_costs}</span>
+                            <span style={{ fontWeight: 600 }}>{currencySymbol}{budgetBreakdown.hotel_costs}</span>
                           </div>
                           <div className="ledger-row">
                             <span className="ledger-row-label">Sightseeing & Activity Entrance Fees</span>
-                            <span style={{ fontWeight: 600 }}>${budgetBreakdown.activity_costs}</span>
+                            <span style={{ fontWeight: 600 }}>{currencySymbol}{budgetBreakdown.activity_costs}</span>
                           </div>
                           <div className="ledger-row">
                             <span className="ledger-row-label">Meals & Restaurant Dining</span>
-                            <span style={{ fontWeight: 600 }}>${budgetBreakdown.food_costs}</span>
+                            <span style={{ fontWeight: 600 }}>{currencySymbol}{budgetBreakdown.food_costs}</span>
                           </div>
                           <div className="ledger-row">
                             <span className="ledger-row-label">Estimated Transit & local metro</span>
-                            <span style={{ fontWeight: 600 }}>${budgetBreakdown.transport_costs}</span>
+                            <span style={{ fontWeight: 600 }}>{currencySymbol}{budgetBreakdown.transport_costs}</span>
                           </div>
                           <div className="ledger-row">
                             <span style={{ color: '#fff', fontWeight: 700 }}>Total Final Bill</span>
-                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 800 }}>${budgetBreakdown.total_cost}</span>
+                            <span style={{ color: 'var(--accent-cyan)', fontWeight: 800 }}>{currencySymbol}{budgetBreakdown.total_cost}</span>
                           </div>
                         </div>
                       </div>
@@ -666,6 +904,32 @@ function App() {
                   )}
                 </div>
               )}
+
+              {/* RAG Collapsible citations section */}
+              {retrievedContext && retrievedContext.length > 0 && (
+                <div className="citations-box">
+                  <div className="citations-header" onClick={() => setIsCitationsOpen(!isCitationsOpen)}>
+                    <div className="citations-title">
+                      <BookOpen size={16} />
+                      <span>Verified Knowledge Sources (RAG Retriever)</span>
+                    </div>
+                    {isCitationsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </div>
+                  {isCitationsOpen && (
+                    <div className="citations-list">
+                      {retrievedContext.map((text, idx) => (
+                        <div key={idx} className="citation-item">
+                          <div className="citation-header-meta">
+                            <span>Knowledge Source Chunk #{idx + 1}</span>
+                            <span className="citation-badge">Guidebook Fact</span>
+                          </div>
+                          <p>{text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             /* Empty State */
@@ -674,7 +938,7 @@ function App() {
                 <Compass size={44} />
               </div>
               <h3>Explore Awaits</h3>
-              <p>Configure your destination, budget constraints, and day count in the panel to launch the multi-agent travel compilation graph.</p>
+              <p>Configure your destination, budget constraints, and day count in the panel to launch the RAG-powered multi-agent travel compilation graph.</p>
             </div>
           )}
         </section>

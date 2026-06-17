@@ -78,6 +78,9 @@ async def stream_itinerary(
             "provider": request_data.provider,
             "api_key": request_data.api_key,
             "error": None,
+            "retrieved_context": None,
+            "currency": None,
+            "currency_symbol": None,
             "planner_skeleton": None,
             "hotels": None,
             "attractions": None,
@@ -110,6 +113,9 @@ async def stream_itinerary(
                     "data": json.dumps({
                         "agent": node_name,
                         "state": {
+                            "retrieved_context": state.get("retrieved_context"),
+                            "currency": state.get("currency"),
+                            "currency_symbol": state.get("currency_symbol"),
                             "planner_skeleton": state.get("planner_skeleton"),
                             "hotels": state.get("hotels"),
                             "daily_itinerary": state.get("daily_itinerary"),
