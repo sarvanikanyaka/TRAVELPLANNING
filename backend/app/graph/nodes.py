@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from app.config import settings
 from app.graph.state import PlanState
-from app.observability import trace_graph_node
+from app.observability import trace_graph_node, logger
 from app.services.rag_service import rag_service, detect_currency
 
 # Define Pydantic response structures for each agent to use with .with_structured_output()
@@ -34,7 +34,7 @@ class AttractionDetails(BaseModel):
 
 class RestaurantDetails(BaseModel):
     name: str = Field(description="Name of the restaurant")
-    description: str = Field(description="Brief summary of vibe or signature dishes")
+      description: str = Field(description="Brief summary of vibe or signature dishes")
     cuisine: str = Field(description="Cuisine type (e.g. Japanese, Italian, Street Food)")
     average_cost: float = Field(description="Average cost per person in the local currency")
     location: str = Field(description="General neighborhood location")
@@ -82,16 +82,59 @@ def get_llm(provider: str, custom_key: Optional[str] = None):
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
+# Robust LLM Invocation with Fallback Model Names
+def invoke_with_fallback(provider: str, api_key: Optional[str], schema, prompt: str):
+    """
+    Invokes LLM and automatically falls back to alternative model identifiers if a 404 or support error occurs.
+    """
+    if provider.lower() == "openai":
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            openai_api_key=api_key or settings.OPENAI_API_KEY,
+            temperature=0.2
+        )
+        structured_llm = llm.with_structured_output(schema)
+        return structured_llm.invoke(prompt)
+        
+    elif provider.lower() == "gemini":
+        # List of models to try in sequence
+        models_to_try = [
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-pro"
+        ]
+        
+        last_exception = None
+        for model_name in models_to_try:
+            try:
+                logger.info(f"Attempting Gemini invoke with model: {model_name}")
+                llm = ChatGoogleGenerativeAI(
+                    model=model_name,
+                    google_api_key=api_key or settings.GOOGLE_API_KEY,
+                    temperature=0.2
+                )
+                structured_llm = llm.with_structured_output(schema)
+                return structured_llm.invoke(prompt)
+            except Exception as e:
+                logger.warning(f"Model {model_name} failed: {str(e)}")
+                last_exception = e
+                # Continue to next model fallback
+                continue
+        
+        # If all failed, raise the final exception
+        raise last_exception
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")
+
 @trace_graph_node("Retrieval Agent")
 def retrieval_agent(state: PlanState) -> PlanState:
     """Retrieval Agent: Dynamically detects currency and fetches RAG guidebook context."""
     try:
-        # Detect currency configuration based on destination
         currency, symbol = detect_currency(state["destination"])
         state["currency"] = currency
         state["currency_symbol"] = symbol
         
-        # Perform vector context retrieval
         context = rag_service.retrieve_context(
             destination=state["destination"],
             provider=state["provider"],
@@ -110,9 +153,6 @@ def planner_agent(state: PlanState) -> PlanState:
         return state
         
     try:
-        llm = get_llm(state["provider"], state["api_key"])
-        structured_llm = llm.with_structured_output(PlannerSkeletonOutput)
-        
         curr = state.get("currency", "USD")
         sym = state.get("currency_symbol", "$")
         
@@ -126,7 +166,7 @@ def planner_agent(state: PlanState) -> PlanState:
             f"Keep travel logistics smooth and group activities geographically."
         )
         
-        response = structured_llm.invoke(prompt)
+        response = invoke_with_fallback(state["provider"], state["api_key"], PlannerSkeletonOutput, prompt)
         state["planner_skeleton"] = response.model_dump()
     except Exception as e:
         state["error"] = f"Planner Agent failed: {str(e)}"
@@ -140,13 +180,9 @@ def hotel_agent(state: PlanState) -> PlanState:
         return state
         
     try:
-        llm = get_llm(state["provider"], state["api_key"])
-        structured_llm = llm.with_structured_output(HotelAgentOutput)
-        
         curr = state.get("currency", "USD")
         sym = state.get("currency_symbol", "$")
         
-        # Inject RAG context
         context_str = ""
         if state.get("retrieved_context"):
             context_str = "\n".join([f"- {c}" for c in state["retrieved_context"]])
@@ -167,7 +203,7 @@ def hotel_agent(state: PlanState) -> PlanState:
             f"Estimate the price per night in {curr} and calculate the total cost for {state['days'] - 1} nights (since it is a {state['days']}-day trip)."
         )
         
-        response = structured_llm.invoke(prompt)
+        response = invoke_with_fallback(state["provider"], state["api_key"], HotelAgentOutput, prompt)
         hotels_list = []
         for h in response.hotels:
             total = h.price_per_night * max(1, state["days"] - 1)
@@ -193,16 +229,12 @@ def attractions_agent(state: PlanState) -> PlanState:
         return state
         
     try:
-        llm = get_llm(state["provider"], state["api_key"])
-        structured_llm = llm.with_structured_output(AttractionsAgentOutput)
-        
         skeleton = state["planner_skeleton"]
         skeleton_str = "\n".join([f"Day {i+1}: {t} (Area: {a})" for i, (t, a) in enumerate(zip(skeleton["themes"], skeleton["areas"]))])
         
         curr = state.get("currency", "USD")
         sym = state.get("currency_symbol", "$")
         
-        # Inject RAG context
         context_str = ""
         if state.get("retrieved_context"):
             context_str = "\n".join([f"- {c}" for c in state["retrieved_context"]])
@@ -223,7 +255,7 @@ def attractions_agent(state: PlanState) -> PlanState:
             f"Tailor the recommendations to the daily geographic focus areas and the general budget: {sym}{state['budget']} {curr}."
         )
         
-        response = structured_llm.invoke(prompt)
+        response = invoke_with_fallback(state["provider"], state["api_key"], AttractionsAgentOutput, prompt)
         
         daily_itinerary = []
         for plan in response.daily_plans:
@@ -242,9 +274,6 @@ def budget_agent(state: PlanState) -> PlanState:
         return state
         
     try:
-        llm = get_llm(state["provider"], state["api_key"])
-        structured_llm = llm.with_structured_output(BudgetAgentOutput)
-        
         hotels = state["hotels"]
         itinerary = state["daily_itinerary"]
         
@@ -275,7 +304,7 @@ def budget_agent(state: PlanState) -> PlanState:
             f"4. Determine status: 'within_budget' if total_cost <= budget, otherwise 'over_budget'. If over budget, make reasonable adjustments to total costs to represent a realistic, optimized budget suggestion."
         )
         
-        response = structured_llm.invoke(prompt)
+        response = invoke_with_fallback(state["provider"], state["api_key"], BudgetAgentOutput, prompt)
         
         state["budget_breakdown"] = {
             "hotel_costs": response.hotel_costs,
