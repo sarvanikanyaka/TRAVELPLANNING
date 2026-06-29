@@ -34,7 +34,7 @@ class AttractionDetails(BaseModel):
 
 class RestaurantDetails(BaseModel):
     name: str = Field(description="Name of the restaurant")
-      description: str = Field(description="Brief summary of vibe or signature dishes")
+    description: str = Field(description="Brief summary of vibe or signature dishes")
     cuisine: str = Field(description="Cuisine type (e.g. Japanese, Italian, Street Food)")
     average_cost: float = Field(description="Average cost per person in the local currency")
     location: str = Field(description="General neighborhood location")
@@ -60,13 +60,13 @@ class BudgetAgentOutput(BaseModel):
     selected_hotel_name: str = Field(description="Name of the hotel selected to stay within budget (must be one of the three options from the Hotel Agent)")
 
 # Helper to initialize the correct LLM
-def get_llm(provider: str, custom_key: Optional[str] = None):
+def get_llm(provider: str, custom_key: Optional[str] = None, model_name: Optional[str] = None):
     if provider.lower() == "openai":
         api_key = custom_key or settings.OPENAI_API_KEY
         if not api_key:
             raise ValueError("OpenAI API key is missing. Please provide it in the UI or environment.")
         return ChatOpenAI(
-            model="gpt-4o-mini",
+            model=model_name or "gpt-4o-mini",
             openai_api_key=api_key,
             temperature=0.2
         )
@@ -75,7 +75,7 @@ def get_llm(provider: str, custom_key: Optional[str] = None):
         if not api_key:
             raise ValueError("Gemini API key is missing. Please provide it in the UI or environment.")
         return ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash-latest",
+            model=model_name or "gemini-1.5-flash-latest",
             google_api_key=api_key,
             temperature=0.2
         )
@@ -88,11 +88,7 @@ def invoke_with_fallback(provider: str, api_key: Optional[str], schema, prompt: 
     Invokes LLM and automatically falls back to alternative model identifiers if a 404 or support error occurs.
     """
     if provider.lower() == "openai":
-        llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            openai_api_key=api_key or settings.OPENAI_API_KEY,
-            temperature=0.2
-        )
+        llm = get_llm(provider, api_key)
         structured_llm = llm.with_structured_output(schema)
         return structured_llm.invoke(prompt)
         
@@ -109,11 +105,7 @@ def invoke_with_fallback(provider: str, api_key: Optional[str], schema, prompt: 
         for model_name in models_to_try:
             try:
                 logger.info(f"Attempting Gemini invoke with model: {model_name}")
-                llm = ChatGoogleGenerativeAI(
-                    model=model_name,
-                    google_api_key=api_key or settings.GOOGLE_API_KEY,
-                    temperature=0.2
-                )
+                llm = get_llm(provider, api_key, model_name)
                 structured_llm = llm.with_structured_output(schema)
                 return structured_llm.invoke(prompt)
             except Exception as e:
