@@ -95,6 +95,8 @@ def invoke_with_fallback(provider: str, api_key: Optional[str], schema, prompt: 
     elif provider.lower() == "gemini":
         # List of models to try in sequence
         models_to_try = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
             "gemini-1.5-flash-latest",
             "gemini-1.5-flash",
             "gemini-1.5-pro-latest",
