@@ -10,6 +10,7 @@ from app.config import settings
 from app.models import PlannerRequest, TravelPlan
 from app.graph.workflow import app_graph
 from app.observability import CorrelationIdMiddleware, configure_langsmith, logger
+from app.services.demo_service import generate_demo_stream
 
 # Initialize application
 app = FastAPI(
@@ -89,6 +90,16 @@ async def stream_itinerary(
             "budget_breakdown": None
         }
 
+        # Check if API keys are completely missing
+        has_server_keys = bool(settings.OPENAI_API_KEY or settings.GOOGLE_API_KEY)
+        has_custom_key = bool(request_data.api_key)
+        
+        if not (has_server_keys or has_custom_key):
+            logger.info("No API keys provided in environment or request. Launching Demo Mode...")
+            async for event in generate_demo_stream(request_data.destination, request_data.budget, request_data.days):
+                yield event
+            return
+
         logger.info(f"Starting LangGraph execution for destination: {request_data.destination}")
 
         try:
@@ -99,12 +110,11 @@ async def stream_itinerary(
                 # Extract the node name and output state
                 node_name, state = list(chunk.items())[0]
                 
-                # If there's an error in state, notify client and stop
+                # If there's an error in state, notify client, log it, and switch to demo mode
                 if state.get("error"):
-                    yield {
-                        "event": "agent_error",
-                        "data": json.dumps({"agent": node_name, "error": state["error"]})
-                    }
+                    logger.warning(f"LangGraph Agent Error in '{node_name}': {state['error']}. Switching to Demo Mode fallback...")
+                    async for event in generate_demo_stream(request_data.destination, request_data.budget, request_data.days):
+                        yield event
                     return
 
                 # Send the node update back to client
@@ -131,10 +141,8 @@ async def stream_itinerary(
             }
 
         except Exception as e:
-            logger.error(f"Error during graph execution: {str(e)}", exc_info=True)
-            yield {
-                "event": "system_error",
-                "data": json.dumps({"error": f"An internal error occurred: {str(e)}"})
-            }
+            logger.error(f"Error during graph execution: {str(e)}. Falling back to Demo Mode...", exc_info=True)
+            async for event in generate_demo_stream(request_data.destination, request_data.budget, request_data.days):
+                yield event
 
     return EventSourceResponse(event_generator())
