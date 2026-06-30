@@ -77,8 +77,7 @@ def get_llm(provider: str, custom_key: Optional[str] = None, model_name: Optiona
         return ChatGoogleGenerativeAI(
             model=model_name or "gemini-1.5-flash-latest",
             google_api_key=api_key,
-            temperature=0.2,
-            api_version="v1"
+            temperature=0.2
         )
     else:
         raise ValueError(f"Unsupported provider: {provider}")
