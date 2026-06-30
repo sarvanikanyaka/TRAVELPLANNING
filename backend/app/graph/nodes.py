@@ -110,6 +110,14 @@ def invoke_with_fallback(provider: str, api_key: Optional[str], schema, prompt: 
                 return structured_llm.invoke(prompt)
             except Exception as e:
                 logger.warning(f"Model {model_name} failed: {str(e)}")
+                # Diagnostic check: log available models for this key
+                try:
+                    import google.generativeai as genai
+                    genai.configure(api_key=api_key or settings.GOOGLE_API_KEY)
+                    available_models = [m.name for m in genai.list_models()]
+                    logger.info(f"Diag: Available models for this key: {available_models}")
+                except Exception as list_err:
+                    logger.warning(f"Diag: Could not list models: {list_err}")
                 last_exception = e
                 # Continue to next model fallback
                 continue
